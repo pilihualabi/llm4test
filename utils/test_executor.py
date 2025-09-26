@@ -51,10 +51,10 @@ def save_assertion_failure_file(
         # Save the file
         file_path.write_text(updated_content, encoding='utf-8')
         
-        print(f"   💾 Saved assertion failure: {filename}")
+        print(f"    Saved assertion failure: {filename}")
         
     except Exception as e:
-        print(f"   ⚠️ Failed to save assertion failure file: {e}")
+        print(f"    Failed to save assertion failure file: {e}")
 
 def remove_ansi_colors(text: str) -> str:
     """
@@ -263,7 +263,7 @@ def run_test_class(
                     json_logger.initialize_individual_test_entry(method_name)
         
         # STEP 1: Run each test method individually (isolated)
-        print("🧪 STEP 1: Running tests individually (isolated)\n")
+        print(" STEP 1: Running tests individually (isolated)\n")
         
         # Use final_tests for direct execution
         if final_tests:
@@ -274,10 +274,10 @@ def run_test_class(
                 if method_name_match:
                     method_name = method_name_match.group(1)
                 else:
-                    print(f"   ❌ Could not extract method name for test {idx}")
+                    print(f"    Could not extract method name for test {idx}")
                     continue
                 
-                print(f"   ✓ Running test {method_name}")
+                print(f"    Running test {method_name}")
                 
                 # Create an isolated test file for this specific test method
                 isolated_test_content = create_isolated_test_with_scaffold(
@@ -352,7 +352,7 @@ def run_test_class(
                         overall_success = False
                         # Show concise failure status
                         failure_type = failure_category.replace('_', ' ').title()
-                        print(f"   ❌ Failed ({failure_type})")
+                        print(f"    Failed ({failure_type})")
                         
                         # Add tests with assertion errors to successful tests list (they are runtime-successful)
                         if failure_category == "assertion_error":
@@ -363,7 +363,7 @@ def run_test_class(
                                 if args and hasattr(args, 'max_runtime_fix_examples') and len(recent_successful_tests) > args.max_runtime_fix_examples:
                                     recent_successful_tests.pop(0)
                             else:
-                                print(f"   ℹ️ Test method already in examples list (skipping duplicate)")
+                                print(f"   ℹ Test method already in examples list (skipping duplicate)")
                         
                         # Runtime fix loop integration
                         if failure_category == "runtime_error" and args and hasattr(args, 'max_runtime_fix_attempts') and args.max_runtime_fix_attempts > 0:
@@ -373,13 +373,13 @@ def run_test_class(
                                 
                                 # Check if required parameters are available
                                 if not class_code:
-                                    print(f"   ⚠️ Runtime fix skipped: class_code is missing")
+                                    print(f"    Runtime fix skipped: class_code is missing")
                                     continue
                                 if not junit_version:
-                                    print(f"   ⚠️ Runtime fix skipped: junit_version is missing")
+                                    print(f"    Runtime fix skipped: junit_version is missing")
                                     continue
                                 if not llm_client:
-                                    print(f"   ⚠️ Runtime fix skipped: llm_client is missing")
+                                    print(f"    Runtime fix skipped: llm_client is missing")
                                     continue
                                 
                                 # Run the runtime-fix loop
@@ -400,19 +400,19 @@ def run_test_class(
                                 )
                                 
                                 if fix_result in ["passed", "assertion_error"]:
-                                    print(f"   ✅ Runtime error fixed for {method_name} after {attempts_made} attempts")
+                                    print(f"    Runtime error fixed for {method_name} after {attempts_made} attempts")
                                     
                                     # Update individual results based on runtime fix loop result
                                     if fix_result == "passed":
                                         individual_results[method_name] = True
                                         individual_failures[method_name] = None  # Clear the failure
                                         overall_success = True
-                                        print(f"   ✅ Fixed test method passes")
+                                        print(f"    Fixed test method passes")
                                     else:  # assertion_error
                                         individual_results[method_name] = False
                                         individual_failures[method_name] = "assertion_error"
                                         overall_success = False
-                                        print(f"   ❌ Fixed test method fails with assertion error")
+                                        print(f"    Fixed test method fails with assertion error")
                                     
                                     # Update final_tests with the fixed method
                                     for i, (scenario, original_test_method) in enumerate(final_tests):
@@ -454,7 +454,7 @@ def run_test_class(
                                             final_outcome="timeout"
                                         )
                                 else:  # runtime_error
-                                    print(f"   ❌ Runtime fix failed after {attempts_made} attempts")
+                                    print(f"    Runtime fix failed after {attempts_made} attempts")
                                     individual_results[method_name] = False
                                     individual_failures[method_name] = "runtime_error"
                                     overall_success = False
@@ -469,7 +469,7 @@ def run_test_class(
                                             final_outcome="runtime_error"
                                         )
                             except Exception as fix_error:
-                                print(f"   ⚠️ Runtime fix loop failed with error: {str(fix_error)}")
+                                print(f"    Runtime fix loop failed with error: {str(fix_error)}")
                                 # Continue with the test as failed, don't re-raise the exception
                                 # Log runtime fix attempt that failed due to exception
                                 if json_logger:
@@ -488,7 +488,7 @@ def run_test_class(
                                     runtime_fix_attempted=False
                                 )
                     else:
-                        print(f"   ✅ Passed")
+                        print(f"    Passed")
                         # Add successful test to recent successful tests for runtime fix examples
                         recent_successful_tests.append(test_method)
                         # Keep only the most recent examples
@@ -568,12 +568,12 @@ def run_test_class(
                         if individual_failures.get(method) == "timeout"]
         
         if timeout_tests:
-            print(f"\n⚠️ Excluding {len(timeout_tests)} timeout tests from group runs: {timeout_tests}")
+            print(f"\n Excluding {len(timeout_tests)} timeout tests from group runs: {timeout_tests}")
             test_methods_for_group = [method for method in test_methods 
                                      if method not in timeout_tests]
             
             # Create a filtered version of the test content that excludes timeout tests
-            print(f"🔧 Creating filtered test file content (excluding timeout tests)...")
+            print(f" Creating filtered test file content (excluding timeout tests)...")
             # Create the test content from passing tests
             passing_tests = [(scenario, test_method) for scenario, test_method in final_tests 
                            if individual_results.get(re.search(r'public\s+void\s+(\w+)\s*\(', test_method).group(1), False)]
@@ -592,7 +592,7 @@ def run_test_class(
         
         # Show which tests were excluded from analysis
         if timeout_tests:
-            print(f"\n⚠️ Tests Excluded from Analysis (but still in file):")
+            print(f"\n Tests Excluded from Analysis (but still in file):")
             for i, method_name in enumerate(timeout_tests, 1):
                 print(f"   {i}. {method_name}")
         
@@ -619,11 +619,11 @@ def run_test_class(
                 env=env
             )
         except Exception as e:
-            print(f"   ⚠️ Recompilation failed: {e}")
+            print(f"    Recompilation failed: {e}")
         
         # STEP 2: Run all tests together 5 times to filter flaky tests
  
-        print("\n\n🧪 STEP 2: Running tests in group (5 iterations)\n")
+        print("\n\n STEP 2: Running tests in group (5 iterations)\n")
         
         if build_system == "gradle":
             gradle_wrapper = repo_path / "gradlew"
@@ -660,7 +660,7 @@ def run_test_class(
                 # Remove ANSI color codes to facilitate parsing
                 clean_group_output = remove_ansi_colors(group_output)
                 
-                print(f"   ✓ Iteration {iteration + 1}:")
+                print(f"    Iteration {iteration + 1}:")
                 
                 # Parse the group output to get individual results from this iteration
                 group_individual_results = parse_test_output(clean_group_output, build_system)
@@ -759,7 +759,7 @@ def run_test_class(
                             error_breakdown.append(f"{error_counts['timeout']} timeout")
                         
                         error_info = f" ({', '.join(error_breakdown)})" if error_breakdown else ""
-                        print(f"   📊 {total_tests} total, {passed_tests_count} passed, {failed_tests_count + error_tests_count} failed{error_info}")
+                        print(f"    {total_tests} total, {passed_tests_count} passed, {failed_tests_count + error_tests_count} failed{error_info}")
                         print()
                         
                         # Store the actual Maven counts for later use
@@ -885,7 +885,7 @@ def run_test_class(
                                 total_tests = len(test_methods_for_group)
                                 passed_tests_count = total_tests
                                 failed_tests_count = 0
-                                print(f"   📊 {total_tests} total, {passed_tests_count} passed, {failed_tests_count} failed")
+                                print(f"    {total_tests} total, {passed_tests_count} passed, {failed_tests_count} failed")
                                 print()
 
                         else:
@@ -982,14 +982,14 @@ def run_test_class(
                             error_breakdown.append(f"{error_counts['timeout']} timeout")
                         
                         error_info = f" ({', '.join(error_breakdown)})" if error_breakdown else ""
-                        print(f"   📊 {total_tests} total, {passed_tests_count} passed, {failed_tests_count} failed{error_info}")
+                        print(f"    {total_tests} total, {passed_tests_count} passed, {failed_tests_count} failed{error_info}")
                         print()
                     else:
                         # Gradle pattern not found - assume all tests passed
                         total_tests = len(test_methods_for_group)
                         passed_tests_count = total_tests
                         failed_tests_count = 0
-                        print(f"   📊 {total_tests} total, {passed_tests_count} passed, {failed_tests_count} failed")
+                        print(f"    {total_tests} total, {passed_tests_count} passed, {failed_tests_count} failed")
                         print()
                 
                 group_test_results.append(iteration_results)
@@ -1425,11 +1425,11 @@ def create_detailed_summary(failure_details: Dict[str, str], test_methods: List[
     
     # Build summary
     summary_lines = []
-    summary_lines.append(f"\n📊 {summary_type} Test Execution Summary:")
+    summary_lines.append(f"\n {summary_type} Test Execution Summary:")
     summary_lines.append("─" * 50)
     
     summary_lines.append(f"   Total tests: {total_tests}")
-    summary_lines.append(f"   ✅ Passed: {passed_tests}")
+    summary_lines.append(f"    Passed: {passed_tests}")
     
     # Add failure breakdown to the failed count line
     if failed_tests > 0:
@@ -1440,13 +1440,13 @@ def create_detailed_summary(failure_details: Dict[str, str], test_methods: List[
                 failure_breakdown_parts.append(f"{count} {readable_type}")
         
         failure_info = f" ({', '.join(failure_breakdown_parts)})"
-        summary_lines.append(f"   ❌ Failed: {failed_tests}{failure_info}")
+        summary_lines.append(f"    Failed: {failed_tests}{failure_info}")
     else:
-        summary_lines.append(f"   ❌ Failed: {failed_tests}")
+        summary_lines.append(f"    Failed: {failed_tests}")
     
     # Add detailed failure information with renamed section
     if failed_tests > 0:
-        summary_lines.append(f"\n   📋 Failure Breakdown:")
+        summary_lines.append(f"\n    Failure Breakdown:")
         for method in test_methods:
             failure_type = failure_details.get(method)
             if failure_type is not None:  # If test failed

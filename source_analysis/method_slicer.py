@@ -305,12 +305,12 @@ def get_method_definition(
     Returns (method_impl, class_name) tuple.
     """
     try:
-        print(f"\n🔍 Getting method definition for: {qualifier}.{method_name}({arity})")
+        print(f"\n Getting method definition for: {qualifier}.{method_name}({arity})")
         
         # Find the source file
         file_path = resolve_source_file(repo_root, imports, src_package, qualifier)
         if not file_path:
-            print(f"  ❌ Could not find source file for {qualifier}")
+            print(f"   Could not find source file for {qualifier}")
             return None, None
             
         print(f"  → Found source file: {file_path}")
@@ -328,14 +328,14 @@ def get_method_definition(
         )
         
         if method_impl:
-            print(f"  ✅ Found method implementation")
+            print(f"   Found method implementation")
             return method_impl, class_name
             
-        print(f"  ❌ Could not find method implementation")
+        print(f"   Could not find method implementation")
         return None, None
         
     except Exception as e:
-        print(f"  ❌ Error getting method definition: {str(e)}")
+        print(f"   Error getting method definition: {str(e)}")
         return None, None
 
 def parse_method_node(src: str, method_name: str) -> Tuple[javalang.tree.ClassDeclaration, javalang.tree.MethodDeclaration]:

@@ -2,384 +2,265 @@
 Test scaffold generation module for creating test class templates with necessary imports.
 """
 
-from typing import Dict, Set, List, Tuple, Any
 import re
-from pathlib import Path
-from config import test_config
 import logging
-import javalang
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+# 移除对已删除模块的导入
+# from config import test_config
 
 logger = logging.getLogger(__name__)
 
-# JUnit 4 imports
-JUNIT4_IMPORTS = [
-    "import static org.junit.Assert.*;",
-    "import static org.mockito.Mockito.*;",
-    "import static org.mockito.ArgumentMatchers.*;",
-    "import org.junit.Test;",
-    "import org.junit.Before;"
-]
-
-# JUnit 5 imports
-JUNIT5_IMPORTS = [
-    "import static org.assertj.core.api.Assertions.*;",
-    "import static org.mockito.Mockito.*;",
-    "import static org.mockito.ArgumentMatchers.*;",
-    "import org.junit.jupiter.api.Test;",
-    "import org.junit.jupiter.api.BeforeEach;",
-    "import static org.junit.jupiter.api.Assertions.*;"
-]
-
-def get_test_directory(repo_path: Path, package: str) -> Path:
-    """
-    Get the test directory path for a given package.
+class TestScaffoldGenerator:
+    """测试脚手架生成器"""
     
-    Args:
-        repo_path: Root directory of the repository
-        package: Package name
+    def __init__(self, project_path: Path):
+        self.project_path = project_path
+    
+    def generate_test_scaffold(
+        self,
+        class_name: str,
+        method_name: str,
+        package_name: str = None,
+        test_style: str = "comprehensive"
+    ) -> str:
+        """
+        生成测试脚手架
         
-    Returns:
-        Path to the test directory
-    """
-    # First check pom.xml for testSourceDirectory configuration
-    pom_path = repo_path / 'pom.xml'
-    if pom_path.exists():
-        try:
-            import xml.etree.ElementTree as ET
-            tree = ET.parse(pom_path)
-            root = tree.getroot()
+        Args:
+            class_name: 类名
+            method_name: 方法名
+            package_name: 包名
+            test_style: 测试风格
             
-            # Add namespace mapping
-            ns = {'': 'http://maven.apache.org/POM/4.0.0'}
-            
-            # Look for testSourceDirectory in build section
-            test_dir_elem = root.find('.//build/testSourceDirectory', ns)
-            if test_dir_elem is not None and test_dir_elem.text:
-                # Convert ${basedir} to actual path if present
-                test_dir = test_dir_elem.text.replace('${basedir}', str(repo_path))
-                test_dir = Path(test_dir) / package.replace('.', '/')
-                if test_dir.exists():
-                    return test_dir
-                # Create the directory if it doesn't exist
-                test_dir.mkdir(parents=True, exist_ok=True)
-                return test_dir
-        except Exception as e:
-            logger.error(f"Error parsing pom.xml: {str(e)}")
-    
-    # If no custom test directory found in pom.xml, proceed with standard detection
-    # First check the source directory structure
-    main_dir = repo_path / "src" / "main"
-    first_package = package.split('.')[0]
-    
-    # If source is directly in main/ without java/, mirror that structure
-    if (main_dir / first_package).exists():
-        test_dir = repo_path / 'src' / 'test' / package.replace('.', '/')
-        if test_dir.exists():
-            return test_dir
-        # Create the directory if it doesn't exist
-        test_dir.mkdir(parents=True, exist_ok=True)
-        return test_dir
-
-    # Try standard Maven/Gradle structure
-    test_dir = repo_path / 'src' / 'test' / 'java' / package.replace('.', '/')
-    if test_dir.exists():
-        return test_dir
+        Returns:
+            生成的测试代码
+        """
+        if not package_name:
+            package_name = self._detect_package_name()
         
-    # Try test/java as fallback
-    test_dir = repo_path / 'test' / 'java' / package.replace('.', '/')
-    if test_dir.exists():
-        return test_dir
+        # 生成测试类名
+        test_class_name = f"{class_name}Test"
         
-    # Create src/test/java if neither exists
-    test_dir = repo_path / 'src' / 'test' / 'java' / package.replace('.', '/')
-    test_dir.mkdir(parents=True, exist_ok=True)
-    return test_dir
-
-def extract_package_from_imports(imports: Dict[str, str]) -> Set[str]:
-    """
-    Extract package names from imports dictionary.
-    
-    Args:
-        imports: Dictionary of imports from the class under test
+        # 生成测试代码
+        test_code = self._generate_test_class(
+            package_name, test_class_name, class_name, method_name, test_style
+        )
         
-    Returns:
-        Set of package names
-    """
-    packages = set()
-    for imp in imports.values():
-        if imp:
-            pkg = imp.rsplit('.', 1)[0]
-            packages.add(pkg)
-    return packages
-
-def load_source(path: str) -> Dict[str, Any]:
-    """
-    Load and parse a Java source file to extract package and imports.
+        return test_code
     
-    Args:
-        path: Path to the Java source file
+    def _detect_package_name(self) -> str:
+        """检测包名"""
+        # 尝试从项目结构推断包名
+        src_dirs = [
+            self.project_path / "src" / "main" / "java",
+            self.project_path / "src" / "main" / "kotlin",
+            self.project_path / "src" / "main" / "groovy"
+        ]
         
-    Returns:
-        Dictionary containing source, package, and import mappings
-    """
-    src = Path(path).read_text(encoding="utf-8", errors="ignore")
-    pkg_m = re.search(r'^\s*package\s+([\w\.]+);', src, re.MULTILINE)
-    pkg = pkg_m.group(1) if pkg_m else ''
-    
-    # Extract all imports exactly as they appear in the file
-    imports = []
-    # Match the entire import statement including the semicolon
-    for match in re.finditer(r'^\s*import\s+([\w\.]+);', src, re.MULTILINE):
-        full_import = match.group(1)
-        # Skip wildcard imports
-        if not full_import.endswith('.*'):
-            imports.append(full_import)
-    
-    return {
-        "source": src,
-        "package": pkg,
-        "imports": imports,
-        "wildcards": []  # We don't need wildcards for test generation
-    }
-
-def find_test_package_structure(repo_path: Path, source_package: str) -> str:
-    """
-    Find the package structure used for tests in the project.
-    
-    Args:
-        repo_path: Root directory of the repository
-        source_package: Package of the source class being tested
+        for src_dir in src_dirs:
+            if src_dir.exists():
+                # 查找第一个Java文件来推断包名
+                java_files = list(src_dir.rglob("*.java"))
+                if java_files:
+                    # 从文件路径推断包名
+                    relative_path = java_files[0].relative_to(src_dir)
+                    package_parts = relative_path.parent.parts
+                    if package_parts:
+                        return ".".join(package_parts)
         
-    Returns:
-        The package structure for tests or None if not found
-    """
-    logger.debug(f"Finding test package structure for source package: {source_package}")
-    logger.debug(f"Repository path: {repo_path}")
-
-    # First check the source directory structure
-    main_dir = repo_path / "src" / "main"
-    logger.debug(f"Checking main directory structure: {main_dir}")
+        # 默认包名
+        return "com.example.test"
     
-    # Check if this is a standard Maven/Gradle structure (src/main/java)
-    if (main_dir / "java").exists():
-        logger.debug("Found standard Maven/Gradle structure (src/main/java)")
-        # Verify test directory exists
-        test_dir = repo_path / "src" / "test" / "java" / source_package.replace('.', '/')
-        if test_dir.exists():
-            logger.debug(f"Found matching test directory: {test_dir}")
-            return source_package
-        logger.debug("No matching test directory found for standard structure")
-    
-    # If not standard structure, check if source is directly in main/
-    first_package = source_package.split('.')[0]
-    if (main_dir / first_package).exists():
-        logger.debug(f"Found non-standard structure in main: {main_dir / first_package}")
-        # Verify test directory exists
-        test_dir = repo_path / "src" / "test" / first_package
-        if test_dir.exists():
-            logger.debug(f"Found matching test directory: {test_dir}")
-            return source_package
-        logger.debug("No matching test directory found for non-standard structure")
-
-    # If not found, try to infer from existing test files
-    test_dir = repo_path / "src" / "test"
-    logger.debug(f"Checking for existing test files in: {test_dir}")
-    if not test_dir.exists():
-        logger.debug("No test directory found")
-        return None
-    
-    # Look for .java files in the test directory
-    test_files = list(test_dir.rglob("*.java"))
-    logger.debug(f"Found {len(test_files)} test files")
-    if not test_files:
-        logger.debug("No test files found")
-        return None
+    def _generate_test_class(
+        self,
+        package_name: str,
+        test_class_name: str,
+        class_name: str,
+        method_name: str,
+        test_style: str
+    ) -> str:
+        """生成测试类"""
         
-    # Get the common package structure from existing tests
-    packages = [f.parent.relative_to(test_dir) for f in test_files]
-    if packages:
-        # Convert path to package structure
-        package = str(packages[0]).replace('/', '.')
-        logger.debug(f"Inferred package structure: {package}")
-        # Verify this structure exists in test
-        test_dir = repo_path / "src" / "test" / package.replace('.', '/')
-        if test_dir.exists():
-            logger.debug(f"Found matching test directory: {test_dir}")
-            return package
-        logger.debug("No matching test directory found for inferred structure")
-    logger.debug("No package structure could be inferred")
-    return None
-
-def get_base_test_package(source_package: str, test_dir: Path) -> str:
-    """
-    Get the base test package from the source package and test directory.
-    
-    Args:
-        source_package: Package of the source class being tested
-        test_dir: Path to the test directory
+        # 基础导入
+        imports = [
+            "import org.junit.jupiter.api.Test;",
+            "import org.junit.jupiter.api.BeforeEach;",
+            "import org.junit.jupiter.api.AfterEach;",
+            "import org.junit.jupiter.api.DisplayName;",
+            "import org.junit.jupiter.params.ParameterizedTest;",
+            "import org.junit.jupiter.params.provider.ValueSource;",
+            "import org.junit.jupiter.params.provider.Arguments;",
+            "import org.junit.jupiter.params.provider.MethodSource;",
+            "import static org.junit.jupiter.api.Assertions.*;",
+            "import java.util.stream.Stream;"
+        ]
         
-    Returns:
-        The base test package (e.g., 'com.ezylang.evalex' from 'com.ezylang.evalex.parser')
-    """
-    # Get the relative path from src/test/java to the test directory
-    test_root = test_dir.parent.parent.parent  # Go up to src/test/java
-    rel_path = test_dir.relative_to(test_root)
-    
-    # Convert path to package structure
-    base_package = str(rel_path).replace('/', '.')
-    return base_package
-
-def generate_test_scaffold(
-    class_imports: List[str],
-    dependencies: Dict[str, Set[str]],
-    junit_version: int,
-    class_name: str,
-    repo_path: Path
-) -> Tuple[str, Path]:
-    """
-    Generate a minimal test class scaffold with essential imports.
-    
-    Args:
-        class_imports: List of imports from the class under test
-        dependencies: Dictionary of dependencies found during analysis
-        junit_version: JUnit version (4 or 5) detected from build configuration
-        class_name: Name of the class under test
-        repo_path: Root directory of the repository
+        # 根据测试风格添加特定导入
+        if test_style == "performance":
+            imports.extend([
+                "import org.junit.jupiter.api.Timeout;",
+                "import java.util.concurrent.TimeUnit;"
+            ])
         
-    Returns:
-        Tuple of (scaffold string, test file path)
-    """
-    logger.debug(f"Generating test scaffold for class: {class_name}")
-    logger.debug(f"Repository path: {repo_path}")
+        # 生成测试类
+        test_class = f"""package {package_name};
 
-    # Find the source file in the repository
-    source_file = None
-    for path in repo_path.rglob(f"{class_name}.java"):
-        source_file = path
-        logger.debug(f"Found source file: {path}")
-        break
-    
-    if not source_file or not source_file.exists():
-        logger.error(f"Could not find source file for class {class_name}")
-        raise ValueError(f"Could not find source file for class {class_name}")
-    
-    # Read the source file and extract package
-    content = source_file.read_text()
-    package_match = re.search(r'package\s+([\w\.]+);', content)
-    if not package_match:
-        logger.error(f"Could not find package declaration in {source_file}")
-        raise ValueError(f"Could not find package declaration in {source_file}")
-    
-    source_package = package_match.group(1)
-    logger.debug(f"Extracted source package: {source_package}")
-    
-    # Get test directory and create test file path
-    test_dir = get_test_directory(repo_path, source_package)
-    test_file = test_dir / f"{class_name}Test.java"
-    
-    # Build the scaffold
-    scaffold = []
-    
-    # Add package declaration using the source file's package
-    scaffold.append(f"package {source_package};")
-    scaffold.append("")
-    
-    if junit_version == '5':
-        scaffold.extend(JUNIT5_IMPORTS)
-    else:
-        scaffold.extend(JUNIT4_IMPORTS)
+{chr(10).join(imports)}
 
-    # Add imports from the class under test
-    # First, get all imports from the source file
-    other_package_imports = []
-    static_imports = []
-    wildcard_imports = []
+@DisplayName("{class_name} Tests")
+class {test_class_name} {{
     
-    for match in re.finditer(r'import\s+(?:static\s+)?([\w\.]+(?:\*)?);', content):
-        full_import = match.group(1)
-        if '*' in full_import:
-            wildcard_imports.append(full_import)
-        elif 'static' in match.group(0):
-            static_imports.append(full_import)
-        elif not full_import.startswith(source_package):  # Only import from other packages
-            other_package_imports.append(full_import)
+    private {class_name} {self._get_instance_name(class_name)};
     
-    # Add imports from other packages
-    for imp in other_package_imports:
-        scaffold.append(f"import {imp};")
+    @BeforeEach
+    void setUp() {{
+        {self._get_instance_name(class_name)} = new {class_name}();
+    }}
     
-    # Add static imports
-    for static_imp in static_imports:
-        scaffold.append(f"import static {static_imp};")
+    @AfterEach
+    void tearDown() {{
+        {self._get_instance_name(class_name)} = null;
+    }}
     
-    # Add wildcard imports
-    for wildcard in wildcard_imports:
-        scaffold.append(f"import {wildcard};")
+    {self._generate_test_methods(class_name, method_name, test_style)}
     
-    # Add commonly useful imports (before deduplication to catch any that might already exist)
-    useful_imports = [
-        # Java Reflection (commonly used in decoders/parsers)
-        "import java.lang.reflect.*;",
+    {self._generate_utility_methods(test_style)}
+}}
+"""
         
-        # Java Time (commonly used in decoders/parsers)
-        "import java.time.*;",
-        "import java.time.format.*;",
-        "import java.time.temporal.*;",
-        "import java.time.zone.*;",
-        "import java.time.chrono.*;",
-
-        # Java IO (commonly used in decoders/parsers)
-        "import java.io.InputStream;",
-        "import java.io.OutputStream;",
-        "import java.io.ByteArrayInputStream;",
-        "import java.io.ByteArrayOutputStream;",
-        "import java.io.IOException;",
-        # Java Util – for collections and helpers
-        "import java.util.List;",
-        "import java.util.ArrayList;",
-        "import java.util.Arrays;",
-        "import java.util.Map;",
-        "import java.util.HashMap;"
-    ]
+        return test_class
     
-    scaffold.extend(useful_imports)
+    def _get_instance_name(self, class_name: str) -> str:
+        """获取实例变量名"""
+        return class_name[0].lower() + class_name[1:]
     
-    # Also get all imports as they appear in the source file to catch any we might have missed
-    all_imports = set()
-    for match in re.finditer(r'import\s+(?:static\s+)?([\w\.]+(?:\*)?);', content):
-        full_import = match.group(0)  # Get the entire import statement
-        all_imports.add(full_import)
+    def _generate_test_methods(
+        self,
+        class_name: str,
+        method_name: str,
+        test_style: str
+    ) -> str:
+        """生成测试方法"""
+        instance_name = self._get_instance_name(class_name)
+        
+        if test_style == "comprehensive":
+            return self._generate_comprehensive_tests(instance_name, method_name)
+        elif test_style == "minimal":
+            return self._generate_minimal_tests(instance_name, method_name)
+        elif test_style == "bdd":
+            return self._generate_bdd_tests(instance_name, method_name)
+        elif test_style == "performance":
+            return self._generate_performance_tests(instance_name, method_name)
+        elif test_style == "security":
+            return self._generate_security_tests(instance_name, method_name)
+        else:
+            return self._generate_comprehensive_tests(instance_name, method_name)
     
-    # Add any imports we might have missed (they'll be deduplicated by the set)
-    for imp in sorted(all_imports):
-        if imp not in scaffold:  # Only add if not already added
-            scaffold.append(imp)
+    def _generate_comprehensive_tests(self, instance_name: str, method_name: str) -> str:
+        """生成全面的测试"""
+        return f"""
+    @Test
+    @DisplayName("Should handle normal case")
+    void test{method_name.capitalize()}_NormalCase() {{
+        // TODO: Implement test for normal case
+        assertTrue(true, "Test not implemented yet");
+    }}
     
-    scaffold.append("")
+    @Test
+    @DisplayName("Should handle edge case")
+    void test{method_name.capitalize()}_EdgeCase() {{
+        // TODO: Implement test for edge case
+        assertTrue(true, "Test not implemented yet");
+    }}
     
-    # Add empty test class with the correct name
-    test_class_name = f"{class_name}Test"
-    scaffold.append(f"public class {test_class_name} {{")
-    scaffold.append("")
-    scaffold.append("}")
+    @Test
+    @DisplayName("Should handle error case")
+    void test{method_name.capitalize()}_ErrorCase() {{
+        // TODO: Implement test for error case
+        assertTrue(true, "Test not implemented yet");
+    }}
     
-    # Convert scaffold to string
-    scaffold_str = "\n".join(scaffold)
+    @ParameterizedTest
+    @ValueSource(strings = {{"test1", "test2", "test3"}})
+    @DisplayName("Should handle multiple inputs")
+    void test{method_name.capitalize()}_MultipleInputs(String input) {{
+        // TODO: Implement parameterized test
+        assertTrue(true, "Test not implemented yet");
+    }}
+"""
     
-    # Search for and delete any existing test file with the same name
-    existing_test_files = list(repo_path.rglob(f"{class_name}Test.java"))
-    if existing_test_files:
-        for existing_file in existing_test_files:
-            try:
-                existing_file.unlink()
-                print(f"   🗑️  Deleted existing test file: {existing_file.relative_to(repo_path)}")
-            except Exception as e:
-                print(f"   ⚠️  Could not delete existing test file {existing_file.relative_to(repo_path)}: {e}")
+    def _generate_minimal_tests(self, instance_name: str, method_name: str) -> str:
+        """生成最小化测试"""
+        return f"""
+    @Test
+    @DisplayName("Basic functionality test")
+    void test{method_name.capitalize()}_Basic() {{
+        // TODO: Implement basic test
+        assertTrue(true, "Test not implemented yet");
+    }}
+"""
     
-    # Write the test file to disk (this will overwrite if file exists)
-    test_file.write_text(scaffold_str, encoding='utf-8')
+    def _generate_bdd_tests(self, instance_name: str, method_name: str) -> str:
+        """生成BDD风格测试"""
+        return f"""
+    @Test
+    @DisplayName("Given valid input, when {method_name} is called, then it should succeed")
+    void givenValidInput_when{method_name.capitalize()}_thenShouldSucceed() {{
+        // Given
+        // TODO: Set up test data
+        
+        // When
+        // TODO: Call the method
+        
+        // Then
+        // TODO: Verify result
+        assertTrue(true, "Test not implemented yet");
+    }}
+"""
     
-    # Store the test file path in the global config
-    test_config.set_test_file_path(str(test_file))
+    def _generate_performance_tests(self, instance_name: str, method_name: str) -> str:
+        """生成性能测试"""
+        return f"""
+    @Test
+    @Timeout(value = 1, unit = TimeUnit.SECONDS)
+    @DisplayName("Should complete within reasonable time")
+    void test{method_name.capitalize()}_Performance() {{
+        // TODO: Implement performance test
+        assertTrue(true, "Test not implemented yet");
+    }}
+"""
     
-    return scaffold_str, test_file 
+    def _generate_security_tests(self, instance_name: str, method_name: str) -> str:
+        """生成安全测试"""
+        return f"""
+    @Test
+    @DisplayName("Should handle malicious input safely")
+    void test{method_name.capitalize()}_Security() {{
+        // TODO: Implement security test
+        assertTrue(true, "Test not implemented yet");
+    }}
+"""
+    
+    def _generate_utility_methods(self, test_style: str) -> str:
+        """生成工具方法"""
+        if test_style == "comprehensive":
+            return """
+    /**
+     * Helper method to create test data
+     */
+    private Object createTestData() {{
+        // TODO: Implement test data creation
+        return null;
+    }}
+    
+    /**
+     * Helper method to verify test results
+     */
+    private void verifyResult(Object actual, Object expected) {{
+        // TODO: Implement result verification
+        assertEquals(expected, actual);
+    }}
+"""
+        else:
+            return "" 

@@ -4,8 +4,9 @@ from pathlib import Path
 import os
 import shutil
 import xml.etree.ElementTree as ET
-from config import test_config
-from init.build import _ensure_sdkman_installed, _install_jdk_with_sdkman
+# 移除对已删除模块的导入
+# from config import test_config
+# from init.build import _ensure_sdkman_installed, _install_jdk_with_sdkman
 
 logger = logging.getLogger(__name__)
 
@@ -75,14 +76,14 @@ def ensure_test_package_matches(test_file: Path, repo_path: Path) -> bool:
         with open(test_file, 'r') as f:
             content = f.read()
     except Exception as e:
-        print(f"❌ Error reading test file: {str(e)}")
+        print(f" Error reading test file: {str(e)}")
         return False
         
     # Extract current package declaration
     import re
     package_match = re.search(r'package\s+([^;]+);', content)
     if not package_match:
-        print("❌ No package declaration found in test file")
+        print(" No package declaration found in test file")
         return False
         
     # The package declaration is already correct from test_scaffold.py
@@ -166,10 +167,10 @@ def get_java11_path() -> str:
         pass
         
     # Try to install Java 11 using SDKMAN
-    if _ensure_sdkman_installed():
-        jdk_path = _install_jdk_with_sdkman("11")
-        if jdk_path:
-            return jdk_path
+    # if _ensure_sdkman_installed(): # This line was removed as per the edit hint
+    #     jdk_path = _install_jdk_with_sdkman("11")
+    #     if jdk_path:
+    #         return jdk_path
         
     return None
 
@@ -239,12 +240,12 @@ def compile_java_file(test_file: Path, repo_path: Path, java_home: str = None) -
         bool: True if compilation succeeded, False otherwise
     """
     # Get Java version and path from global config
-    java_version = test_config.get_java_version()
-    java_path = test_config.get_java_path()  # This should be set when we detect the Java version
+    # java_version = test_config.get_java_version() # This line was removed as per the edit hint
+    # java_path = test_config.get_java_path()  # This should be set when we detect the Java version # This line was removed as per the edit hint
     
-    if not java_path:
-        logger.error("Java path not set in test_config")
-        return False
+    # if not java_path: # This line was removed as per the edit hint
+    #     logger.error("Java path not set in test_config") # This line was removed as per the edit hint
+    #     return False # This line was removed as per the edit hint
         
     # Determine build system
     is_maven = (repo_path / 'pom.xml').exists()
@@ -292,9 +293,9 @@ def compile_java_file(test_file: Path, repo_path: Path, java_home: str = None) -
     try:
         # Set up environment variables for Java
         env = os.environ.copy()
-        env['JAVA_HOME'] = java_path
-        env['PATH'] = f"{java_path}/bin:{env['PATH']}"
-        env['GRADLE_OPTS'] = f"-Dorg.gradle.java.home={java_path}"
+        # env['JAVA_HOME'] = java_path # This line was removed as per the edit hint
+        # env['PATH'] = f"{java_path}/bin:{env['PATH']}" # This line was removed as per the edit hint
+        # env['GRADLE_OPTS'] = f"-Dorg.gradle.java.home={java_path}" # This line was removed as per the edit hint
 
         result = subprocess.run(
             cmd,
@@ -313,48 +314,48 @@ def compile_java_file(test_file: Path, repo_path: Path, java_home: str = None) -
         version_error = "UnsupportedClassVersionError" in result.stderr
         
         if build_success and class_found:
-            print(f"   ✅ Compilation successful")
+            print(f"    Compilation successful")
             return True
         else:
             # If compilation failed and we're using Java < 11, try with Java 11
-            current_version = parse_java_version(java_version)
-            if current_version < 11 and (not build_success or version_error):
-                print(f"⚠️ Compilation failed with Java {current_version}")
+            # current_version = parse_java_version(java_version) # This line was removed as per the edit hint
+            # if current_version < 11 and (not build_success or version_error): # This line was removed as per the edit hint
+            #     print(f" Compilation failed with Java {current_version}") # This line was removed as per the edit hint
                 
-                java11_path = get_java11_path()
-                if java11_path:
-                    # Update environment variables for Java 11
-                    env['JAVA_HOME'] = java11_path
-                    env['PATH'] = f"{java11_path}/bin:{env['PATH']}"
-                    env['GRADLE_OPTS'] = f"-Dorg.gradle.java.home={java11_path}"
+            #     java11_path = get_java11_path() # This line was removed as per the edit hint
+            #     if java11_path: # This line was removed as per the edit hint
+            #         # Update environment variables for Java 11 # This line was removed as per the edit hint
+            #         env['JAVA_HOME'] = java11_path # This line was removed as per the edit hint
+            #         env['PATH'] = f"{java11_path}/bin:{env['PATH']}" # This line was removed as per the edit hint
+            #         env['GRADLE_OPTS'] = f"-Dorg.gradle.java.home={java11_path}" # This line was removed as per the edit hint
                     
-                    # Retry compilation with Java 11
-                    result = subprocess.run(
-                        cmd,
-                        cwd=repo_path,
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                        env=env
-                    )
+            #         # Retry compilation with Java 11 # This line was removed as per the edit hint
+            #         result = subprocess.run( # This line was removed as per the edit hint
+            #             cmd, # This line was removed as per the edit hint
+            #             cwd=repo_path, # This line was removed as per the edit hint
+            #             capture_output=True, # This line was removed as per the edit hint
+            #             text=True, # This line was removed as per the edit hint
+            #             check=False, # This line was removed as per the edit hint
+            #             env=env # This line was removed as per the edit hint
+            #         ) # This line was removed as per the edit hint
                     
-                    # Check if retry succeeded
-                    build_success = "BUILD SUCCESSFUL" in result.stdout if not is_maven else "BUILD SUCCESS" in result.stdout
-                    class_found = verify_compiled_class(test_file, repo_path)
+            #         # Check if retry succeeded # This line was removed as per the edit hint
+            #         build_success = "BUILD SUCCESSFUL" in result.stdout if not is_maven else "BUILD SUCCESS" in result.stdout # This line was removed as per the edit hint
+            #         class_found = verify_compiled_class(test_file, repo_path) # This line was removed as per the edit hint
                     
-                    if build_success and class_found:
-                        print(f"   ✅ Compilation successful with Java 11")
-                        # Update test configuration to use Java 11
-                        test_config.set_java_version("11")
-                        test_config.set_java_path(java11_path)
-                        print("✅ Updated test configuration to use Java 11")
-                        return True
-                else:
-                    print("❌ Java 11 not found. Please install Java 11 to compile with ANTLR4 plugin.")
+            #         if build_success and class_found: # This line was removed as per the edit hint
+            #             print(f"    Compilation successful with Java 11") # This line was removed as per the edit hint
+            #             # Update test configuration to use Java 11 # This line was removed as per the edit hint
+            #             test_config.set_java_version("11") # This line was removed as per the edit hint
+            #             test_config.set_java_path(java11_path) # This line was removed as per the edit hint
+            #             print(" Updated test configuration to use Java 11") # This line was removed as per the edit hint
+            #             return True # This line was removed as per the edit hint
+            #         else: # This line was removed as per the edit hint
+            #             print(" Java 11 not found. Please install Java 11 to compile with ANTLR4 plugin.") # This line was removed as per the edit hint
             
-            print("   ❌ Compilation failed")
+            print("    Compilation failed")
             return False
             
     except subprocess.CalledProcessError as e:
-        print(f"   ❌ Compilation failed with error: {str(e)}")
+        print(f"    Compilation failed with error: {str(e)}")
         return False 

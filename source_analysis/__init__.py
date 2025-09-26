@@ -12,7 +12,8 @@ from .dependency_extractor import (
     parse_method_signature,
     load_source
 )
-from .test_scaffold import generate_test_scaffold, extract_package_from_imports
+# 移除对已删除函数的导入
+# from .test_scaffold import generate_test_scaffold, extract_package_from_imports
 
 __all__ = [
     'slice_method',
@@ -23,7 +24,7 @@ __all__ = [
     'find_flow_control_deps',
     'extract_method_slice',
     'parse_method_signature',
-    'load_source',
-    'generate_test_scaffold',
-    'extract_package_from_imports'
+    'load_source'
+    # 'generate_test_scaffold',
+    # 'extract_package_from_imports'
 ]

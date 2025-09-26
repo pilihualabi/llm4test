@@ -45,14 +45,14 @@ def parse_gradle_test_output(output: str) -> Dict[str, bool]:
             pass  # Some failed tests weren't captured in output
     
     # Look for test execution patterns
-    # Gradle typically shows: ✓ testMethodName or ✗ testMethodName
-    test_pattern = re.compile(r'([✓✗])\s+(\w+)')
+    # Gradle typically shows:  testMethodName or  testMethodName
+    test_pattern = re.compile(r'([])\s+(\w+)')
     
     for line_num, line in enumerate(output.split('\n'), 1):
         match = test_pattern.search(line)
         if match:
             status, method_name = match.groups()
-            results[method_name] = (status == '✓')
+            results[method_name] = (status == '')
     
     # Look for test class patterns (duplicate of first pattern, but keeping for compatibility)
     test_class_pattern = re.compile(r'(\w+Test)\s*>\s*(\w+)\s+(PASSED|FAILED)')

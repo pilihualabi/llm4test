@@ -176,7 +176,7 @@ def runtime_fix_loop(
     best_error_line = best_progress
     
     # Print initial status
-    print(f"   ⚠️ Test method failed with runtime error (line {best_progress}), starting runtime-fix loop")
+    print(f"    Test method failed with runtime error (line {best_progress}), starting runtime-fix loop")
     
     # Get the test file path from config
     test_file_path = test_config.get_test_file_path()
@@ -229,11 +229,11 @@ def runtime_fix_loop(
             
             # Check if the response is valid
             if not new_test_method or new_test_method in ("{}", "{ }", "{\n}", "{\r\n}", "{\n    }"):
-                print(f"   🔧 Fix attempt {attempt}/{max_attempts} - ⚠️ Invalid response from LLM")
+                print(f"    Fix attempt {attempt}/{max_attempts} -  Invalid response from LLM")
                 continue
                 
         except Exception as e:
-            print(f"   🔧 Fix attempt {attempt}/{max_attempts} - ⚠️ Failed to get fix from LLM")
+            print(f"    Fix attempt {attempt}/{max_attempts} -  Failed to get fix from LLM")
             continue
         
         # Test the new test method
@@ -257,13 +257,13 @@ def runtime_fix_loop(
             
             # Check if test passed
             if success:
-                print(f"   🔧 Fix attempt {attempt}/{max_attempts} - ✅ Runtime error fixed")
-                print(f"   ✅ Runtime fix successful after {attempts_made} attempts")
+                print(f"    Fix attempt {attempt}/{max_attempts} -  Runtime error fixed")
+                print(f"    Runtime fix successful after {attempts_made} attempts")
                 return "passed", new_test_method, attempts_made, new_diagnosis
             
             # Check if this is a compilation error (LLM gave us invalid code)
             if is_compilation_error(new_output, build_system):
-                print(f"   🔧 Fix attempt {attempt}/{max_attempts} - ⚠️ Invalid (Compilation Error)")
+                print(f"    Fix attempt {attempt}/{max_attempts} -  Invalid (Compilation Error)")
                 continue
             
             # Categorize the failure (only if not a compilation error)
@@ -271,27 +271,27 @@ def runtime_fix_loop(
             
             # Handle different failure types
             if failure_type == "timeout":
-                print(f"   🔧 Fix attempt {attempt}/{max_attempts} - ⚠️ Invalid (Timeout)")
-                print(f"   ❌ Runtime fix failed after {attempts_made} attempts")
+                print(f"    Fix attempt {attempt}/{max_attempts} -  Invalid (Timeout)")
+                print(f"    Runtime fix failed after {attempts_made} attempts")
                 return "timeout", best_test_method, attempts_made, best_diagnosis
             
             if failure_type == "assertion_error":
-                print(f"   🔧 Fix attempt {attempt}/{max_attempts} - ✅ Runtime error fixed")
-                print(f"   ✅ Runtime fix successful after {attempts_made} attempts")
+                print(f"    Fix attempt {attempt}/{max_attempts} -  Runtime error fixed")
+                print(f"    Runtime fix successful after {attempts_made} attempts")
                 return "assertion_error", new_test_method, attempts_made, new_diagnosis
             
             # Still a runtime error - check progress
             current_progress = extract_execution_progress(new_output, test_method_name)
             
             if current_progress > best_progress:
-                print(f"   🔧 Fix attempt {attempt}/{max_attempts} - 📈 Improved to line {current_progress}")
+                print(f"    Fix attempt {attempt}/{max_attempts} -  Improved to line {current_progress}")
                 best_test_method = new_test_method
                 best_progress = current_progress
                 best_diagnosis = new_diagnosis  # Update diagnosis for the new line
                 best_error_line = current_progress
                 best_error_output = new_output
             else:
-                print(f"   🔧 Fix attempt {attempt}/{max_attempts} - 📉 Still on line {current_progress}")
+                print(f"    Fix attempt {attempt}/{max_attempts} - 📉 Still on line {current_progress}")
                 # Update diagnosis even if we're on the same line, as long as we have a valid diagnosis
                 if new_diagnosis and (best_diagnosis is None or best_diagnosis == 'None'):
                     best_diagnosis = new_diagnosis
@@ -303,5 +303,5 @@ def runtime_fix_loop(
                 test_file.unlink()
     
     # If we get here, we've exhausted all attempts
-    print(f"   ❌ Runtime fix failed after {attempts_made} attempts")
+    print(f"    Runtime fix failed after {attempts_made} attempts")
     return "runtime_error", best_test_method, attempts_made, best_diagnosis 

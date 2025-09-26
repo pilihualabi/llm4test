@@ -1,26 +1,17 @@
-# utils package
-
 """
-Utilities module for common functionality.
+工具模块
+提供各种实用工具和辅助功能
 """
 
-from .logging import setup_logging
-from .compile_java_file import compile_java_file
-from .compiler import assemble_and_compile_test
-from .compile_fix_loop import compile_fix_loop
-from .test_executor import run_test_class, run_all_tests
-from .test_result_parser import extract_test_method_names
-from .build_system_detector import detect_build_system
-from .json_logger import TestGenerationLogger
+# 移除对已删除模块的导入
+# from .compile_java_file import compile_java_file
+# from .compiler import JavaCompiler
+# from .bug_assessment import BugAssessment
 
+# 重新定义可用的工具类
 __all__ = [
-    'setup_logging',
-    'compile_java_file', 
-    'assemble_and_compile_test',
-    'compile_fix_loop',
-    'run_test_class',
-    'run_all_tests',
-    'extract_test_method_names',
-    'detect_build_system',
-    'TestGenerationLogger'
+    'JavaCompiler',
+    'BugAssessment',
+    'SmartFixLoop',
+    'TestCompilationManager'
 ]
